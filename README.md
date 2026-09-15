@@ -19,12 +19,11 @@ The reference controls let you restore the saved corrector settings. The applica
 
 `BumpsApplication_GUI.py` contains the orbit-bump GUI. It uses the response-matrix code to reconstruct the measured response, including coupling between the horizontal and vertical planes.
 
-## Installation
+## Installation and startup
 
-Use Python 3.11 or newer and Poetry 2 or newer. From the repository directory, install the dependencies:
+Use Python 3.11 or newer and Poetry 2 or newer; the local setup was tested with Python 3.13. Keep this repository and `machine-interfaces`, `response-matrix` in the same parent directory. From this repository, run:
 
 ```bash
 poetry install
+poetry run python BumpsApplication_GUI.py
 ```
-
-Shared code is provided by `machine-interfaces`, `response-matrix`.

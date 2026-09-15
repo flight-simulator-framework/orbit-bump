@@ -2,9 +2,9 @@ from datetime import datetime
 import argparse, glob, os, re, sys, threading
 import matplotlib
 import numpy as np
-from Backend.Response import Response
+from response_matrix.Response import Response
 from zoneinfo import ZoneInfo
-from Interfaces.interface_setup import INTERFACE_SETUP
+from machine_interfaces.Interfaces.interface_setup import INTERFACE_SETUP
 
 try:
     from PyQt6 import uic
@@ -28,9 +28,9 @@ except ImportError:
 matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from Backend.SaveOrLoad import SaveOrLoad
-from Backend.State import State
-from Backend.ResponseMatrix_DFS_WFS import ResponseMatrix_DFS_WFS
+from machine_interfaces.Backend.SaveOrLoad import SaveOrLoad
+from machine_interfaces.Backend.State import State
+from response_matrix.ResponseMatrix_DFS_WFS import ResponseMatrix_DFS_WFS
 
 
 class OrbitPoller(QObject):
@@ -179,6 +179,7 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
         self.response_matrix_data = None
         self.reference = None
         self.targets = {}
+        self._procs = []
         self._session_dir = None
         self._session_kick_count = 0
         self._drag = None
@@ -283,14 +284,13 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
 
     def handling(self, app_name, cwd=None, args=None):
         try:
-            path = os.path.join(os.path.dirname(__file__), app_name)
-            workdir = os.path.expanduser(os.path.expandvars(cwd))
+            workdir = os.path.expanduser(os.path.expandvars(cwd or self.cwd))
             proc = QProcess(self)
             proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
             proc.setWorkingDirectory(workdir)
             env = QProcessEnvironment.systemEnvironment()
             proc.setProcessEnvironment(env)
-            argv = [path] + list(args or [])
+            argv = ["-m", os.path.splitext(os.path.basename(app_name))[0]] + list(args or [])
             proc.start(sys.executable, argv)
             proc.readyReadStandardOutput.connect(
                 lambda p=proc: print(bytes(p.readAllStandardOutput()).decode(errors="ignore")))
@@ -1159,7 +1159,7 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    from Backend import SelectInterface
+    from machine_interfaces.Backend import SelectInterface
 
     dialog = SelectInterface.choose_acc_and_interface()
     if dialog is None:
