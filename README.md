@@ -21,9 +21,13 @@ The reference controls let you restore the saved corrector settings. The applica
 
 ## Installation and startup
 
-Use Python 3.11 or newer and Poetry 2 or newer; the local setup was tested with Python 3.13. Keep this repository and `machine-interfaces`, `response-matrix` in the same parent directory. From this repository, run:
+Use Python 3.11 or newer and Poetry 2 or newer.
 
 ```bash
+git clone https://gitlab.cern.ch/flight-simulator/orbit-bump.git
+cd orbit-bump
 poetry install
 poetry run python BumpsApplication_GUI.py
 ```
+
+Poetry downloads and installs the required Python dependencies automatically.
