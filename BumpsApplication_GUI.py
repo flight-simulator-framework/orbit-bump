@@ -311,9 +311,14 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
             return
         self._start_bump_loop()
 
+    def _corrector_bdes(self, names):
+        correctors = self.interface.get_correctors(names)  # some interfaces return their own order, so match by name
+        bdes = dict(zip(map(str, correctors["names"]), np.asarray(correctors["bdes"], dtype=float)))
+        return np.array([bdes[name] for name in names])
+
     def _apply_current_delta(self):
         with self._machine_lock:
-            current_corrector_settings = np.asarray(self.interface.get_correctors(self.corrector_names)["bdes"], dtype=float)
+            current_corrector_settings = self._corrector_bdes(self.corrector_names)
             final_current = current_corrector_settings + self.current_delta
             try:
                 if self.interface.set_correctors(self.corrector_names, final_current) is False:
@@ -324,7 +329,7 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
                 print(f"Error in setting correctors: {e}")
                 return False
             if not mismatch:
-                final_corrector_values = self.interface.get_correctors(self.corrector_names)["bdes"]
+                final_corrector_values = self._corrector_bdes(self.corrector_names)
                 final_state = self.interface.get_state()
         if mismatch:
             if self._bump_running:
@@ -1038,7 +1043,7 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
         max_vals = np.concatenate([max_vals_x, max_vals_y])
 
         with self._machine_lock:
-            current_corrector_settings = np.asarray(self.interface.get_correctors(self.corrector_names)["bdes"], dtype=float)
+            current_corrector_settings = self._corrector_bdes(self.corrector_names)
         new_bdes = current_corrector_settings + delta
         new_bdes = clamp(new_bdes, max_vals)
         delta = new_bdes - current_corrector_settings
