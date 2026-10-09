@@ -655,7 +655,6 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
 
     @staticmethod
     def _by_name(orbit, keys, bpms):
-        # orbit[key] for every BPM in bpms, NaN where the orbit has no such BPM
         rows = dict(zip(orbit["names"], zip(*(orbit[key] for key in keys))))
         missing = (np.nan,) * len(keys)
         return [np.asarray([rows.get(name, missing)[i] for name in bpms], dtype=float) for i in range(len(keys))]
@@ -903,7 +902,7 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
             QMessageBox.warning(self, "Response matrix data", "This response-matrix data was created on a different interface/machine. Choose appropriate one or change interface.")
             return
         selection = []
-        for widget in (self.correctors_list, self.bpms_list):  # nothing selected = use (and select) every device
+        for widget in (self.correctors_list, self.bpms_list):
             if not self._selected_names(widget):
                 widget.selectAll()
             selection.append(self._selected_names(widget))
