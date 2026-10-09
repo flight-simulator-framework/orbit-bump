@@ -21,20 +21,26 @@ The reference controls let you restore the saved corrector settings. The applica
 
 ## Installation and startup
 
-You can choose machines: `atf2`, `clear`, `esrf`, `facet2`.
+On a control-room computer, install the applications with the deployment script of your machine: [CLEAR](https://gitlab.cern.ch/flight-simulator/machine-interfaces/-/blob/master/backends/clear/clear_deploy.md), [ATF2](https://gitlab.cern.ch/flight-simulator/machine-interfaces/-/blob/master/backends/atf2/atf2_deploy.md), [ESRF](https://gitlab.cern.ch/flight-simulator/machine-interfaces/-/blob/master/backends/esrf/esrf_deploy.md) or [FACET2](https://gitlab.cern.ch/flight-simulator/machine-interfaces/-/blob/master/backends/facet2/facet2_deploy.md). It creates a shared virtual environment and one launcher per GUI, e.g. `./BumpsApplication_GUI.sh`.
 
-Example: `poetry install --extras clear`
-
-Use Python 3.11 or newer and Poetry 2 or newer.
+For a local installation, use Python 3.11 or newer and keep the repositories in one directory:
 
 ```bash
-python3 -m pip install "poetry>=2"
-```
-
-```bash
+git clone https://gitlab.cern.ch/flight-simulator/machine-interfaces.git
+git clone https://gitlab.cern.ch/flight-simulator/response-matrix.git
 git clone https://gitlab.cern.ch/flight-simulator/orbit-bump.git
+python3 -m venv venv
+source venv/bin/activate
+pip install -e machine-interfaces -e machine-interfaces/backends/esrf -e response-matrix -e orbit-bump
 cd orbit-bump
-poetry update rf-track --lock
-poetry install --extras clear
-poetry run python BumpsApplication_GUI.py
+python BumpsApplication_GUI.py
 ```
+
+Replace `esrf` with `atf2` or `facet2` for another machine. The CLEAR control-system packages are available only from the CERN Acc-Py index; elsewhere, install only the CLEAR simulation:
+
+```bash
+pip install rf-track cpymad
+pip install --no-deps -e machine-interfaces/backends/clear
+```
+
+Editable installs pick up `git pull` changes without reinstalling.
