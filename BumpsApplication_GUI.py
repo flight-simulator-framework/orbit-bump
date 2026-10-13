@@ -260,7 +260,8 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
 
     def _display_response_matrix(self):
         orbit_dir = self.response_dir_edit.text()
-        self.handling('ComputeResponseMatrix_GUI.py', cwd=self.cwd, args=["--dir1", orbit_dir, "--compute"])
+        self.handling('ComputeResponseMatrix_GUI.py', cwd=self.cwd, args=["--dir1", orbit_dir, "--compute",
+                      "--correctors", *self._selected_names(self.correctors_list), "--bpms", *self._selected_names(self.bpms_list)])
 
     def _clock_now(self):
         return datetime.now(ZoneInfo(self._clock_zone_name))
