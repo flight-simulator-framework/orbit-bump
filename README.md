@@ -52,5 +52,3 @@ The CLEAR control-system packages are available only from the CERN Acc-Py index;
 pip install rf-track cpymad
 pip install --no-deps -e machine-interfaces/backends/clear
 ```
-
-Editable installs pick up `git pull` changes without reinstalling.
