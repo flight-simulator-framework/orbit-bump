@@ -10,7 +10,7 @@ try:
     from PyQt6 import uic
     from PyQt6.QtCore import Qt, QMetaObject, QObject, QProcess, QProcessEnvironment, QThread, QTimer, pyqtSignal, pyqtSlot
     from PyQt6.QtGui import QPixmap
-    from PyQt6.QtWidgets import (QApplication, QCheckBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog,
+    from PyQt6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog,
                                  QFormLayout, QHeaderView, QLabel, QMainWindow, QMessageBox, QPushButton, QSizePolicy,
                                  QVBoxLayout, QWidget, QTableWidgetItem)
 
@@ -19,7 +19,7 @@ except ImportError:
     from PyQt5 import uic
     from PyQt5.QtCore import Qt, QMetaObject, QObject, QProcess, QProcessEnvironment, QThread, QTimer, pyqtSignal, pyqtSlot
     from PyQt5.QtGui import QPixmap
-    from PyQt5.QtWidgets import (QApplication, QCheckBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog,
+    from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog,
                                  QFormLayout, QHeaderView, QLabel, QMainWindow, QMessageBox, QPushButton, QSizePolicy,
                                  QVBoxLayout, QWidget, QTableWidgetItem)
 
@@ -115,9 +115,9 @@ def dialog_accepted(result):
     return result == accepted
 
 class BPMTargetDialog(QDialog):
-    def __init__(self, name, reference, current_target, parent=None):
+    def __init__(self, name, reference, current_bump, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(f"Desired orbit - {name}")
+        self.setWindowTitle(f"Desired bump - {name}")
         self.setModal(True)
         form = QFormLayout(self)
         ref_x, ref_y = reference
@@ -128,16 +128,9 @@ class BPMTargetDialog(QDialog):
         reference_label = QLabel(ref_text)
         reference_label.setWordWrap(True)
         form.addRow(reference_label)
-        target_x, target_y = current_target
-        self.x_enabled = QCheckBox("Set desired horizontal x")
-        self.x_enabled.setChecked(target_x is not None)
-        self.x_value = self._spin(target_x if target_x is not None else ref_x)
-        form.addRow(self.x_enabled, self.x_value)
-
-        self.y_enabled = QCheckBox("Set desired vertical y")
-        self.y_enabled.setChecked(target_y is not None)
-        self.y_value = self._spin(target_y if target_y is not None else ref_y)
-        form.addRow(self.y_enabled, self.y_value)
+        self.x_value, self.y_value = map(self._spin, current_bump)
+        form.addRow("Desired bump Δx", self.x_value)
+        form.addRow("Desired bump Δy", self.y_value)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
         clear_button = QPushButton("Clear")
@@ -154,18 +147,15 @@ class BPMTargetDialog(QDialog):
         spin.setDecimals(6)
         spin.setSingleStep(0.05)
         spin.setSuffix(" mm")
-        spin.setValue(float(value) if np.isfinite(value) else 0.0)
+        spin.setValue(float(value))
         return spin
 
     def _set_both_to_zero(self):
         self.x_value.setValue(0.0)
         self.y_value.setValue(0.0)
 
-    def target(self):
-        return (
-            self.x_value.value() if self.x_enabled.isChecked() else None,
-            self.y_value.value() if self.y_enabled.isChecked() else None,
-        )
+    def bump(self):
+        return self.x_value.value(), self.y_value.value()
 
 class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
     def __init__(self, interface=None, dir_name=None, start_state=None):
@@ -689,16 +679,16 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
     def _edit_bpm_target(self, item):
         item.setSelected(True)
         name = item.text()
-        reference_x, reference_y = self._reference_values([name])
-        current = self.targets.get(name, {})
-        dialog = BPMTargetDialog(name, (reference_x[0], reference_y[0]), (current.get("x"), current.get("y")), self)
+        reference = np.ravel(self._reference_values([name]))
+        base = np.nan_to_num(reference)
+        dialog = BPMTargetDialog(name, reference, np.nan_to_num(np.ravel(self._target_values([name])) - base), self)
         if not dialog_accepted(dialog.exec()):
             return
-        target_x, target_y = dialog.target()
-        if target_x is None and target_y is None:
-            self.targets.pop(name, None)
+        bump = dialog.bump()
+        if any(bump):
+            self.targets[name] = {plane: float(b + d) if d else None for plane, b, d in zip("xy", base, bump)}
         else:
-            self.targets[name] = {"x": target_x, "y": target_y}
+            self.targets.pop(name, None)
         self._refresh_desired_plot()
 
     def _clear_targets(self):
