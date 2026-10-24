@@ -4,7 +4,11 @@ Create a desired beam trajectory by changing selected corrector settings. The ap
 
 The GUI displays the desired, predicted and measured trajectories so that the result can be compared with the requested bump.
 
+Corrector limits, table headers, BPM plots and bump-target inputs use the active interface's configured units. For example, CLEAR RFTrack uses amperes for correctors and millimetres for BPM positions.
+
 The correction uses bounded least squares, with the same beta regularization and PINV tolerance treatment as BBA. Maximum corrector strengths are included in the optimization, allowing other correctors to compensate when one reaches its limit. A maximum strength of zero means no limit for that plane.
+
+Double-click a corrector to edit its weight, as in BBA. When beta is positive, its regularization penalty is beta times that weight: larger weights discourage larger changes. The default weight is 1; a weight of 0 excludes the corrector, including when beta is 0. Corrector weights are saved and restored with the bump session.
 
 ## Usage
 

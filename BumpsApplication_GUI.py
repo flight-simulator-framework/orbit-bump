@@ -9,19 +9,19 @@ from machine_interfaces.Interfaces.interface_setup import INTERFACE_SETUP
 
 try:
     from PyQt6 import uic
-    from PyQt6.QtCore import Qt, QMetaObject, QObject, QProcess, QProcessEnvironment, QThread, QTimer, pyqtSignal, pyqtSlot
-    from PyQt6.QtGui import QPixmap
+    from PyQt6.QtCore import Qt, QEvent, QMetaObject, QObject, QProcess, QProcessEnvironment, QThread, QTimer, pyqtSignal, pyqtSlot
+    from PyQt6.QtGui import QPainter, QPixmap
     from PyQt6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog,
-                                 QFormLayout, QHeaderView, QLabel, QMainWindow, QMessageBox, QPushButton, QSizePolicy,
+                                 QFormLayout, QHeaderView, QInputDialog, QLabel, QMainWindow, QMessageBox, QPushButton, QSizePolicy, QStyledItemDelegate,
                                  QVBoxLayout, QWidget, QTableWidgetItem)
 
     pyqt_version = 6
 except ImportError:
     from PyQt5 import uic
-    from PyQt5.QtCore import Qt, QMetaObject, QObject, QProcess, QProcessEnvironment, QThread, QTimer, pyqtSignal, pyqtSlot
-    from PyQt5.QtGui import QPixmap
+    from PyQt5.QtCore import Qt, QEvent, QMetaObject, QObject, QProcess, QProcessEnvironment, QThread, QTimer, pyqtSignal, pyqtSlot
+    from PyQt5.QtGui import QPainter, QPixmap
     from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog,
-                                 QFormLayout, QHeaderView, QLabel, QMainWindow, QMessageBox, QPushButton, QSizePolicy,
+                                 QFormLayout, QHeaderView, QInputDialog, QLabel, QMainWindow, QMessageBox, QPushButton, QSizePolicy, QStyledItemDelegate,
                                  QVBoxLayout, QWidget, QTableWidgetItem)
 
     pyqt_version = 5
@@ -116,16 +116,18 @@ def dialog_accepted(result):
     return result == accepted
 
 class BPMTargetDialog(QDialog):
-    def __init__(self, name, reference, current_bump, parent=None):
+    def __init__(self, name, reference, current_bump, parent=None, bpm_unit="mm"):
         super().__init__(parent)
+        self.bpm_unit = bpm_unit
+        self._bpm_units_per_mm = 0.001 if bpm_unit == "m" else 1.0
         self.setWindowTitle(f"Desired bump - {name}")
         self.setModal(True)
         form = QFormLayout(self)
         ref_x, ref_y = reference
         if np.isfinite(ref_x) and np.isfinite(ref_y):
-            ref_text = f"Reference: x = {ref_x:+.4f} mm, y = {ref_y:+.4f} mm"
+            ref_text = f"Reference: x = {ref_x:+.6g} {self.bpm_unit}, y = {ref_y:+.6g} {self.bpm_unit}"
         else:
-            ref_text = "Reference has not been read yet; displayed values use 0 mm."
+            ref_text = f"Reference has not been read yet; displayed values use 0 {self.bpm_unit}."
         reference_label = QLabel(ref_text)
         reference_label.setWordWrap(True)
         form.addRow(reference_label)
@@ -141,13 +143,12 @@ class BPMTargetDialog(QDialog):
         clear_button.clicked.connect(self._set_both_to_zero)
         form.addRow(buttons)
 
-    @staticmethod
-    def _spin(value):
+    def _spin(self, value):
         spin = QDoubleSpinBox()
-        spin.setRange(-1_000_000.0, 1_000_000.0)
-        spin.setDecimals(6)
-        spin.setSingleStep(0.05)
-        spin.setSuffix(" mm")
+        spin.setDecimals(9 if self.bpm_unit == "m" else 6)
+        spin.setRange(-1_000_000.0 * self._bpm_units_per_mm, 1_000_000.0 * self._bpm_units_per_mm)
+        spin.setSingleStep(0.05 * self._bpm_units_per_mm)
+        spin.setSuffix(f" {self.bpm_unit}")
         spin.setValue(float(value))
         return spin
 
@@ -157,6 +158,37 @@ class BPMTargetDialog(QDialog):
 
     def bump(self):
         return self.x_value.value(), self.y_value.value()
+
+
+class BpmWeightsDelegate(QStyledItemDelegate):
+    WEIGHTS_ROLE = int(Qt.ItemDataRole.UserRole) + 1
+
+    def paint(self, painter: QPainter, option, index):
+        painter.save()
+        try:
+            opt = option
+            self.initStyleOption(opt, index)
+            style = opt.widget.style() if opt.widget is not None else None
+            if style is not None:
+                opt_no_text = opt
+                opt_no_text.text = ""
+                style.drawControl(style.ControlElement.CE_ItemViewItem, opt_no_text, painter, opt.widget)
+            bpm_name = str(index.data(Qt.ItemDataRole.UserRole) or index.data(Qt.ItemDataRole.DisplayRole) or "")
+            weights = str(index.data(self.WEIGHTS_ROLE) or "")
+            r = opt.rect
+            margin = 6
+            painter.setFont(opt.font)
+            fm = painter.fontMetrics()
+            w_w = fm.horizontalAdvance(weights) if weights else 0
+            left_rect = r.adjusted(margin, 0, -(w_w + 2 * margin), 0)
+            right_rect = r.adjusted(margin, 0, (-margin - 15), 0)
+            painter.setPen(opt.palette.color(opt.palette.ColorRole.Text))
+            painter.drawText(left_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), bpm_name)
+            if weights:
+                painter.drawText(right_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight), weights)
+        finally:
+            painter.restore()
+
 
 class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
     def __init__(self, interface=None, dir_name=None, start_state=None):
@@ -170,6 +202,11 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
         self.response_matrix_data = None
         self.reference = None
         self.targets = {}
+        self.corrector_weights = {}
+        self.correctors_list.setItemDelegate(BpmWeightsDelegate(self.correctors_list))
+        self._selection_before_click = []
+        self._weights_double_click = False
+        self.correctors_list.viewport().installEventFilter(self)
         self._procs = []
         self._session_dir = None
         self._session_kick_count = 0
@@ -210,10 +247,10 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
         self._bump_iter = 0
         self._bump_prev_rms = None
         self._bump_stall = 0
-        self._bump_tol_mm = 0.02
+        self._bump_tol = 0.02 * self._bpm_units_per_mm
         self._bump_max_iter = 20
         self._bump_step_delay_ms = 1500
-        self._bump_min_improvement_mm = 0.002
+        self._bump_min_improvement = 0.002 * self._bpm_units_per_mm
         self._bump_timer = QTimer(self)
         self._bump_timer.setSingleShot(True)
         self._bump_timer.timeout.connect(self._bump_step)
@@ -371,13 +408,13 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
                 self._stop_bump_loop("Bump was not excited.")
                 return
             rms = self._bump_residual_rms()
-            if np.isfinite(rms) and rms <= self._bump_tol_mm:
+            if np.isfinite(rms) and rms <= self._bump_tol:
                 self._stop_bump_loop("Bump was set.")
                 return
             if self._bump_iter >= self._bump_max_iter:
                 self._stop_bump_loop("Bump was not set.")
                 return
-            if self._bump_prev_rms is not None and rms >= self._bump_prev_rms - self._bump_min_improvement_mm:
+            if self._bump_prev_rms is not None and rms >= self._bump_prev_rms - self._bump_min_improvement:
                 self._bump_stall += 1
                 if self._bump_stall >= 2:
                     self._stop_bump_loop("Bump was not set.")
@@ -438,10 +475,53 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
         self.interface.nsamples = samples
         return True
 
+    def eventFilter(self, watched, event):
+        if watched is self.correctors_list.viewport():
+            if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+                self._weights_double_click = False
+                self._selection_before_click = self.correctors_list.selectedItems()
+            elif event.type() == QEvent.Type.MouseButtonDblClick and event.button() == Qt.MouseButton.LeftButton:
+                element = self.correctors_list.itemAt(event.pos())
+                if element is not None:
+                    self._weights_double_click = True
+                    for i in range(self.correctors_list.count()):
+                        item = self.correctors_list.item(i)
+                        item.setSelected(item in self._selection_before_click)
+                    self._edit_corrector_weights(element)
+                    return True
+            elif event.type() == QEvent.Type.MouseButtonRelease and self._weights_double_click:
+                self._weights_double_click = False
+                return True
+        return super().eventFilter(watched, event)
+
+    def _edit_corrector_weights(self, corr):
+        if self._bump_running:
+            return
+        corr_name = corr.text()
+        weight, ok = QInputDialog.getDouble(self, f"Corrector weight - {corr_name}", "Corrector weight (used when beta > 0): ", self.corrector_weights.get(corr_name, 1.0), 0.0, 100.0, 2)
+        if ok:
+            self.corrector_weights[corr_name] = weight
+            self._update_corrector_weights(corr)
+            self._R_matrix = None
+            self.current_delta = None
+            self.apply_button.setEnabled(False)
+
+    def _update_corrector_weights(self, item):
+        item.setData(BpmWeightsDelegate.WEIGHTS_ROLE, f"[w = {self.corrector_weights.get(item.text(), 1.0):g}]")
+
     def _setup_corrector_controls(self):
         correctors = self.interface.get_correctors()
         correctors_list = correctors['names']
-        units_settings = (self._get_interface_initial_settings() or {}).get("units", {})
+        units_settings, sysid_kick, bpm_unit, corrs_unit = self._get_interface_units()
+        self.bpm_unit = bpm_unit
+        self.corrs_unit = corrs_unit
+        self._bpm_units_per_mm = 0.001 if self.bpm_unit == "m" else 1.0
+        strength_suffix = f" ({self.corrs_unit})" if self.corrs_unit else ""
+        column_suffix = f"\n[{self.corrs_unit}]" if self.corrs_unit else ""
+        self.current_groupbox_right.setTitle(f"Max strength{strength_suffix}")
+        self.corr_delta_table.setHorizontalHeaderLabels([
+            "Corrector", f"Change{column_suffix}", f"Reference{column_suffix}", f"Setpoint{column_suffix}",
+        ])
         max_curr_h = 0.0
         max_curr_v = 0.0
         if correctors_list is not None:
@@ -516,6 +596,8 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
         bpms = [str(name) for name in state.get_bpms()["names"]]
 
         self._set_list_items(self.correctors_list, correctors)
+        for i in range(self.correctors_list.count()):
+            self._update_corrector_weights(self.correctors_list.item(i))
         self._set_list_items(self.bpms_list, bpms)
 
     @staticmethod
@@ -682,7 +764,7 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
         name = item.text()
         reference = np.ravel(self._reference_values([name]))
         base = np.nan_to_num(reference)
-        dialog = BPMTargetDialog(name, reference, np.nan_to_num(np.ravel(self._target_values([name])) - base), self)
+        dialog = BPMTargetDialog(name, reference, np.nan_to_num(np.ravel(self._target_values([name])) - base), self, bpm_unit=self.bpm_unit)
         if not dialog_accepted(dialog.exec()):
             return
         bump = dialog.bump()
@@ -734,10 +816,10 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
             line, = axis.plot(index, desired_rel, color="tab:blue", marker="o", markersize=7,
                               label="desired bump", zorder=4)
             lines[plane] = line
-            axis.set_ylabel(f"Δ{plane} [mm]")
+            axis.set_ylabel(f"Δ{plane} [{self.bpm_unit}]")
             axis.legend(fontsize=7, loc="best")
             span = np.concatenate([desired_rel, measured_rel[np.isfinite(measured_rel)]])
-            scale = max(0.5, float(np.max(np.abs(span))) if span.size else 0.5)
+            scale = max(0.5 * self._bpm_units_per_mm, float(np.max(np.abs(span))) if span.size else 0.0)
             axis.set_ylim(-1.25 * scale, 1.25 * scale)
         canvas.ax_y.set_xlabel("BPM")
         self._set_bpm_ticks(canvas, bpms)
@@ -805,9 +887,9 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
         line.set_ydata(y_values)
         lower, upper = axis.get_ylim()
         if value < lower + 0.1 * (upper - lower) or value > upper - 0.1 * (upper - lower):
-            scale = 1.25 * max(abs(value), abs(lower), abs(upper), 0.5)
+            scale = 1.25 * max(abs(value), abs(lower), abs(upper), 0.5 * self._bpm_units_per_mm)
             axis.set_ylim(-scale, scale)
-        axis.set_title(f"{self._desired_bpms[row]}: Δ = {value:+.3f} mm", fontsize=8)
+        axis.set_title(f"{self._desired_bpms[row]}: Δ = {value:+.6g} {self.bpm_unit}", fontsize=8)
         canvas.draw_idle()
 
     def _desired_release(self, _event, canvas):
@@ -835,7 +917,7 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
         for canvas in canvases:
             canvas.clear()
             for axis, plane in ((canvas.ax_x, "x"), (canvas.ax_y, "y")):
-                axis.set_ylabel(f"{plane} [mm]")
+                axis.set_ylabel(f"{plane} [{self.bpm_unit}]")
             canvas.ax_y.set_xlabel("BPM")
             canvas.draw_idle()
 
@@ -899,6 +981,10 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
                 widget.selectAll()
             selection.append(self._selected_names(widget))
         correctors, bpms = selection
+        correctors = [corr for corr in correctors if self.corrector_weights.get(corr, 1.0) > 0]
+        if not correctors:
+            QMessageBox.warning(self, "Corrector weights", "All corrector weights are set to zero.")
+            return
 
         R = Response()
         R.Rxx, R.Ryy, R.Rxy, R.Ryx, R.Bx, R.By, R.hcorrs, R.vcorrs, R.bpms = self._compute_response_matrix_from_directory(
@@ -906,17 +992,17 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
             triangular=bool(self.triangular_checkbox.isChecked()))
         return R
 
-    def _solve_correction(self, R_matrix, delta_orbit, lower_bounds, upper_bounds):
-        A_solver = R_matrix.copy()
-        b_solver = delta_orbit.ravel()
+    def _solve_correction(self, A_weighted, B_weighted, corrector_weights, gain, beta, rcond, lower_bounds, upper_bounds):
+        A_solver = A_weighted.copy()
+        b_solver = -gain * B_weighted.ravel()
 
-        if self.beta_value > 0:
-            L = np.sqrt(self.beta_value) * np.eye(R_matrix.shape[1])
+        if beta > 0:
+            L = np.diag(np.sqrt(corrector_weights * beta))
             A_solver = np.vstack((A_solver, L))
-            b_solver = np.concatenate((b_solver, np.zeros(R_matrix.shape[1])))
+            b_solver = np.concatenate((b_solver, np.zeros(len(corrector_weights))))
         else:
             U, s, Vt = np.linalg.svd(A_solver, full_matrices=False)
-            cutoff = self.pinv_value * s.max()
+            cutoff = rcond * s.max()
             keep = s > cutoff
             if not keep.any():
                 raise RuntimeError("No response matrix directions remain after applying rcond.")
@@ -951,7 +1037,6 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
             self._save_bumps_machine_status()
             self.R = self._get_response_matrix(self.response_dir_edit.text())
             if self.R is None:
-                QMessageBox.warning(self, "Error", "No data files found")
                 return False
             self._R_matrix = np.block([
                 [self.R.Rxx, self.R.Rxy],
@@ -997,10 +1082,11 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
 
         with self._machine_lock:
             current_corrector_settings = self._corrector_bdes(self.corrector_names)
+        corrector_weights = np.array([self.corrector_weights.get(corr, 1.0) for corr in self.corrector_names], dtype=float)
         lower_bounds = -max_vals - current_corrector_settings
         upper_bounds = max_vals - current_corrector_settings
         try:
-            delta = self._solve_correction(R_matrix, delta_orbit, lower_bounds, upper_bounds)
+            delta = self._solve_correction(R_matrix, -delta_orbit, corrector_weights, 1.0, self.beta_value, self.pinv_value, lower_bounds, upper_bounds)
         except (ValueError, RuntimeError, np.linalg.LinAlgError) as exc:
             self.current_delta = None
             self.apply_button.setEnabled(False)
@@ -1071,7 +1157,7 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
                         axis.errorbar(index, measured, yerr=merr, fmt="-o", capsize=3, elinewidth=1, label="measured")
                     else:
                         axis.plot(index, measured, "-o", label="measured")
-                axis.set_ylabel(f"{plane} [mm]")
+                axis.set_ylabel(f"{plane} [{self.bpm_unit}]")
                 axis.legend(fontsize=7, loc="best")
             canvas.ax_y.set_xlabel("BPM")
             self._set_bpm_ticks(canvas, bpms)
@@ -1100,6 +1186,17 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
                         interface_defaults.get("module") == interface_module_name):
                     return interface_defaults
         return None
+
+    def _get_interface_units(self):
+        interface_defaults = self._get_interface_initial_settings()
+        if interface_defaults is None:
+            return {}, 0.01, "mm", ""
+        units_settings = interface_defaults.get("units", {})
+        sysid_kick = units_settings.get("sysid_corrector_kick", 0.01)
+        bpm_unit = units_settings.get("bpm_position", "mm")
+        corrs_unit = units_settings.get("corrector_strength", "T*mm")
+
+        return units_settings, sysid_kick, bpm_unit, corrs_unit
 
     def _get_clock_zone(self):
         return (self._get_interface_initial_settings() or {}).get("clock_timezone", "Europe/Zurich")

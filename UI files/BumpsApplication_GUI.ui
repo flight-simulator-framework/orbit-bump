@@ -485,7 +485,7 @@ QToolButton#pinv_tooltip:hover {
                   <enum>Qt::NoFocus</enum>
                  </property>
                  <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tikhonov regularization strength. &lt;/p&gt;&lt;p&gt;If beta &amp;gt; 0, the solver uses (A^T A + beta I)^-1 to stabilize the correction.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Use &lt;span style=&quot; font-weight:600;&quot;&gt;0 for standard pseudo-inverse.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Increase&lt;/span&gt; it to &lt;span style=&quot; font-weight:600;&quot;&gt;make the solution smoother and less sensitive to noise&lt;/span&gt;. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  <string>&lt;html&gt;&lt;body&gt;&lt;p&gt;Tikhonov regularization strength. Set beta to 0 for the PINV tolerance solver.&lt;/p&gt;&lt;p&gt;When beta is positive, each corrector is penalized by beta times its weight. Double-click a corrector to edit its weight. Larger weights discourage larger corrector changes.&lt;/p&gt;&lt;p&gt;A weight of 0 excludes the corrector, even when beta is 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                  </property>
                  <property name="styleSheet">
                   <string notr="true">QToolButton#beta_tooltip {
@@ -639,7 +639,7 @@ QGroupBox#current_groupbox_right::title {
 }</string>
                  </property>
                  <property name="title">
-                  <string>Max strength (gauss*m)</string>
+                  <string>Max strength</string>
                  </property>
                  <layout class="QVBoxLayout" name="current_groupbox_layout">
                   <property name="spacing">
@@ -808,7 +808,7 @@ QToolButton#max_strength_tooltip:hover {
                 <item>
                  <widget class="QListWidget" name="correctors_list">
                   <property name="toolTip">
-                   <string>Choose correctors that may be used in your later calculation.</string>
+                   <string>Choose correctors for the bump. Double-click a corrector to edit its regularization weight, used when beta &gt; 0. A weight of 0 excludes it, even when beta is 0.</string>
                   </property>
                   <property name="selectionMode">
                    <enum>QAbstractItemView::MultiSelection</enum>
@@ -954,7 +954,7 @@ QToolButton#max_strength_tooltip:hover {
                      <bool>true</bool>
                     </property>
                     <property name="text">
-                     <string>Compute</string>
+                     <string>Compute Corrector Settings</string>
                     </property>
                    </widget>
                   </item>
@@ -970,7 +970,7 @@ QToolButton#max_strength_tooltip:hover {
                      <enum>Qt::NoFocus</enum>
                     </property>
                     <property name="toolTip">
-                     <string>&lt;html&gt;&lt;body&gt;&lt;p&gt;After reading the reference orbit and setting the desired bump, click &lt;b&gt;Compute&lt;/b&gt; to calculate the corrector changes using the selected correctors, BPMs and loaded response-matrix data.&lt;/p&gt;&lt;p&gt;Review the calculated corrector settings and predicted orbit before clicking &lt;b&gt;Apply&lt;/b&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                     <string>&lt;html&gt;&lt;body&gt;&lt;p&gt;After reading the reference orbit and setting the desired bump, click &lt;b&gt;Compute Corrector Settings&lt;/b&gt; to calculate the corrector changes using the selected correctors, BPMs and loaded response-matrix data.&lt;/p&gt;&lt;p&gt;Review the calculated corrector settings and predicted orbit before clicking &lt;b&gt;Apply bump&lt;/b&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                     </property>
                     <property name="styleSheet">
                      <string notr="true">QToolButton#compute_tooltip {
@@ -1010,7 +1010,7 @@ QToolButton#max_strength_tooltip:hover {
                      <string notr="true">background-color: rgb(190, 45, 45); color: white;</string>
                     </property>
                     <property name="text">
-                     <string>Apply</string>
+                     <string>Apply bump</string>
                     </property>
                    </widget>
                   </item>
@@ -1026,7 +1026,7 @@ QToolButton#max_strength_tooltip:hover {
                      <enum>Qt::NoFocus</enum>
                     </property>
                     <property name="toolTip">
-                     <string>&lt;html&gt;&lt;body&gt;&lt;p&gt;Click &lt;b&gt;Apply&lt;/b&gt; to send the calculated settings to the correctors and start iteratively adjusting the orbit towards the desired bump.&lt;/p&gt;&lt;p&gt;The application measures the orbit and recomputes the correction between iterations. Click &lt;b&gt;Stop bump&lt;/b&gt; to interrupt the process.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                     <string>&lt;html&gt;&lt;body&gt;&lt;p&gt;Click &lt;b&gt;Apply bump&lt;/b&gt; to send the calculated settings to the correctors and start iteratively adjusting the orbit towards the desired bump.&lt;/p&gt;&lt;p&gt;The application measures the orbit and recomputes the correction between iterations. Click &lt;b&gt;Stop bump&lt;/b&gt; to interrupt the process.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                     </property>
                     <property name="styleSheet">
                      <string notr="true">QToolButton#apply_tooltip {
@@ -1276,7 +1276,7 @@ QToolButton#max_strength_tooltip:hover {
                  </column>
                  <column>
                   <property name="text">
-                   <string>Δθ</string>
+                   <string>Change</string>
                   </property>
                  </column>
                  <column>
