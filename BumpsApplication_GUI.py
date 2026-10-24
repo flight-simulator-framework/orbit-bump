@@ -2,6 +2,7 @@ from datetime import datetime
 import glob, os, re, sys, threading
 import matplotlib
 import numpy as np
+from scipy.optimize import lsq_linear
 from response_matrix.Response import Response
 from zoneinfo import ZoneInfo
 from machine_interfaces.Interfaces.interface_setup import INTERFACE_SETUP
@@ -905,6 +906,32 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
             triangular=bool(self.triangular_checkbox.isChecked()))
         return R
 
+    def _solve_correction(self, R_matrix, delta_orbit, lower_bounds, upper_bounds):
+        A_solver = R_matrix.copy()
+        b_solver = delta_orbit.ravel()
+
+        if self.beta_value > 0:
+            L = np.sqrt(self.beta_value) * np.eye(R_matrix.shape[1])
+            A_solver = np.vstack((A_solver, L))
+            b_solver = np.concatenate((b_solver, np.zeros(R_matrix.shape[1])))
+        else:
+            U, s, Vt = np.linalg.svd(A_solver, full_matrices=False)
+            cutoff = self.pinv_value * s.max()
+            keep = s > cutoff
+            if not keep.any():
+                raise RuntimeError("No response matrix directions remain after applying rcond.")
+
+            s_keep = s[keep]
+            U_keep = U[:, keep]
+            Vt_keep = Vt[keep, :]
+            A_solver = np.vstack((np.diag(s_keep) @ Vt_keep, s.max() * Vt[~keep, :]))
+            b_solver = np.concatenate((U_keep.T @ b_solver, np.zeros(int((~keep).sum()))))
+        result = lsq_linear(A_solver, b_solver, (lower_bounds, upper_bounds))
+        if not result.success:
+            raise RuntimeError(result.message)
+
+        return result.x
+
     def _compute_orbit_bump(self, *_args, rebuild=True):
         if not self._set_bpm_samples():
             QMessageBox.warning(self, "BPM samples", "Enter valid number of BPM samples.")
@@ -962,21 +989,23 @@ class MainWindow(QMainWindow, SaveOrLoad, ResponseMatrix_DFS_WFS):
             desired_y - current_y,
         ])
 
-        if self.beta_value > 0:
-            delta = np.linalg.solve(
-                R_matrix.T @ R_matrix + self.beta_value * np.eye(R_matrix.shape[1]),
-                R_matrix.T @ delta_orbit,
-            )
-        else:
-            delta = np.linalg.pinv(R_matrix, rcond=self.pinv_value) @ delta_orbit
-
-        nh = len(self.R.hcorrs)
-        delta_x = np.asarray(delta[:nh], dtype=float)
-        delta_y = np.asarray(delta[nh:], dtype=float)
-        max_vals = np.concatenate([np.full(delta_x.shape, max_curr_h, dtype=float), np.full(delta_y.shape, max_curr_v, dtype=float)])
+        max_vals = np.concatenate([
+            np.full(len(self.R.hcorrs), max_curr_h, dtype=float),
+            np.full(len(self.R.vcorrs), max_curr_v, dtype=float),
+        ])
+        max_vals = np.where(max_vals > 0, max_vals, np.inf)
 
         with self._machine_lock:
             current_corrector_settings = self._corrector_bdes(self.corrector_names)
+        lower_bounds = -max_vals - current_corrector_settings
+        upper_bounds = max_vals - current_corrector_settings
+        try:
+            delta = self._solve_correction(R_matrix, delta_orbit, lower_bounds, upper_bounds)
+        except (ValueError, RuntimeError, np.linalg.LinAlgError) as exc:
+            self.current_delta = None
+            self.apply_button.setEnabled(False)
+            QMessageBox.warning(self, "Compute bump", str(exc))
+            return False
         new_bdes = current_corrector_settings + delta
         new_bdes = clamp(new_bdes, max_vals)
         delta = new_bdes - current_corrector_settings

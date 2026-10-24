@@ -690,7 +690,7 @@ QGroupBox#current_groupbox_right::title {
                     <item>
                      <widget class="QToolButton" name="max_strength_tooltip">
                       <property name="toolTip">
-                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum allowed corrector strength during correction. &lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Computed corrections are clipped to these limits.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum allowed corrector strength during correction.&lt;/p&gt;&lt;p&gt;The solver includes these limits when computing the bump and adjusts the other correctors when one reaches its limit.&lt;/p&gt;&lt;p&gt;Set a plane's maximum strength to 0 to leave it unlimited.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                       </property>
                       <property name="styleSheet">
                        <string notr="true">QToolButton#max_strength_tooltip {
@@ -899,83 +899,355 @@ QToolButton#max_strength_tooltip:hover {
               </property>
               <layout class="QVBoxLayout" name="bump_setup_layout">
                <item>
-                <widget class="QPushButton" name="read_reference_button">
-                 <property name="text">
-                  <string>Read reference orbit</string>
+                <widget class="QGroupBox" name="bumpControlsGroup">
+                 <property name="title">
+                  <string>Bump controls</string>
                  </property>
+                 <layout class="QGridLayout" name="bump_controls_layout">
+                  <item row="0" column="0">
+                   <widget class="QPushButton" name="read_reference_button">
+                    <property name="text">
+                     <string>Read reference orbit</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QToolButton" name="read_reference_tooltip">
+                    <property name="minimumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="maximumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="focusPolicy">
+                     <enum>Qt::NoFocus</enum>
+                    </property>
+                    <property name="toolTip">
+                     <string>&lt;html&gt;&lt;body&gt;&lt;p&gt;Read the reference orbit by clicking &lt;b&gt;Read reference orbit&lt;/b&gt;. It reads all BPMs and saves the selected BPM readings as a fixed reference.&lt;/p&gt;&lt;p&gt;Live BPM readings keep refreshing every few seconds. The bump is computed relative to that reference orbit.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">QToolButton#read_reference_tooltip {
+                     border: 1px solid #888;
+                     border-radius: 10px;
+                     min-width: 20px;
+                     max-width: 20px;
+                     min-height: 20px;
+                     max-height: 20px;
+                     padding: 0px;
+                     font-weight: bold;
+                 }
+                 QToolButton#read_reference_tooltip:hover {
+                     background-color: #e6e6e6;
+                 }</string>
+                    </property>
+                    <property name="text">
+                     <string>?</string>
+                    </property>
+                    <property name="autoRaise">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QPushButton" name="compute_button">
+                    <property name="enabled">
+                     <bool>true</bool>
+                    </property>
+                    <property name="text">
+                     <string>Compute</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QToolButton" name="compute_tooltip">
+                    <property name="minimumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="maximumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="focusPolicy">
+                     <enum>Qt::NoFocus</enum>
+                    </property>
+                    <property name="toolTip">
+                     <string>&lt;html&gt;&lt;body&gt;&lt;p&gt;After reading the reference orbit and setting the desired bump, click &lt;b&gt;Compute&lt;/b&gt; to calculate the corrector changes using the selected correctors, BPMs and loaded response-matrix data.&lt;/p&gt;&lt;p&gt;Review the calculated corrector settings and predicted orbit before clicking &lt;b&gt;Apply&lt;/b&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">QToolButton#compute_tooltip {
+                     border: 1px solid #888;
+                     border-radius: 10px;
+                     min-width: 20px;
+                     max-width: 20px;
+                     min-height: 20px;
+                     max-height: 20px;
+                     padding: 0px;
+                     font-weight: bold;
+                 }
+                 QToolButton#compute_tooltip:hover {
+                     background-color: #e6e6e6;
+                 }</string>
+                    </property>
+                    <property name="text">
+                     <string>?</string>
+                    </property>
+                    <property name="autoRaise">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="0">
+                   <widget class="QPushButton" name="apply_button">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>120</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">background-color: rgb(190, 45, 45); color: white;</string>
+                    </property>
+                    <property name="text">
+                     <string>Apply</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="1">
+                   <widget class="QToolButton" name="apply_tooltip">
+                    <property name="minimumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="maximumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="focusPolicy">
+                     <enum>Qt::NoFocus</enum>
+                    </property>
+                    <property name="toolTip">
+                     <string>&lt;html&gt;&lt;body&gt;&lt;p&gt;Click &lt;b&gt;Apply&lt;/b&gt; to send the calculated settings to the correctors and start iteratively adjusting the orbit towards the desired bump.&lt;/p&gt;&lt;p&gt;The application measures the orbit and recomputes the correction between iterations. Click &lt;b&gt;Stop bump&lt;/b&gt; to interrupt the process.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">QToolButton#apply_tooltip {
+                     border: 1px solid #888;
+                     border-radius: 10px;
+                     min-width: 20px;
+                     max-width: 20px;
+                     min-height: 20px;
+                     max-height: 20px;
+                     padding: 0px;
+                     font-weight: bold;
+                 }
+                 QToolButton#apply_tooltip:hover {
+                     background-color: #e6e6e6;
+                 }</string>
+                    </property>
+                    <property name="text">
+                     <string>?</string>
+                    </property>
+                    <property name="autoRaise">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="0">
+                   <widget class="QPushButton" name="stop_bump_button">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>110</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">background-color: rgb(40, 150, 70); color: white;</string>
+                    </property>
+                    <property name="text">
+                     <string>Stop bump</string>
+                    </property>
+                   </widget>
+                  </item>
+                   <item row="3" column="1">
+                    <widget class="QToolButton" name="stop_bump_tooltip">
+                     <property name="minimumSize">
+                      <size><width>22</width><height>22</height></size>
+                     </property>
+                     <property name="maximumSize">
+                      <size><width>22</width><height>22</height></size>
+                     </property>
+                     <property name="focusPolicy">
+                      <enum>Qt::NoFocus</enum>
+                     </property>
+                     <property name="toolTip">
+                      <string>Stop the iterative bump correction. The correctors keep their current settings; use Restore reference to return to the saved reference settings.</string>
+                     </property>
+                     <property name="styleSheet">
+                      <string notr="true">QToolButton#stop_bump_tooltip {
+                      border: 1px solid #888;
+                      border-radius: 10px;
+                      min-width: 20px;
+                      max-width: 20px;
+                      min-height: 20px;
+                      max-height: 20px;
+                      padding: 0px;
+                      font-weight: bold;
+                  }
+                  QToolButton#stop_bump_tooltip:hover {
+                      background-color: #e6e6e6;
+                  }</string>
+                     </property>
+                     <property name="text">
+                      <string>?</string>
+                     </property>
+                     <property name="autoRaise">
+                      <bool>true</bool>
+                     </property>
+                    </widget>
+                   </item>
+                 </layout>
                 </widget>
                </item>
                <item>
-                <widget class="QPushButton" name="clear_targets_button">
-                 <property name="text">
-                  <string>Clear all desired bumps</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="clear_plots_button">
-                 <property name="text">
-                  <string>Clear plots</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="compute_button">
-                 <property name="enabled">
-                  <bool>true</bool>
-                 </property>
-                 <property name="text">
-                  <string>Compute</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="restore_button">
-                 <property name="enabled">
-                  <bool>true</bool>
-                 </property>
-                 <property name="text">
-                  <string>Restore reference</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="apply_button">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="minimumSize">
-                  <size>
-                   <width>120</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="styleSheet">
-                  <string notr="true">background-color: rgb(190, 45, 45); color: white;</string>
-                 </property>
-                 <property name="text">
-                  <string>Apply</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="stop_bump_button">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="minimumSize">
-                  <size>
-                   <width>110</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="styleSheet">
-                  <string notr="true">background-color: rgb(40, 150, 70); color: white;</string>
-                 </property>
-                 <property name="text">
-                  <string>Stop bump</string>
-                 </property>
-                </widget>
+                <layout class="QGridLayout" name="bump_auxiliary_controls_layout">
+                 <item row="0" column="0">
+                  <widget class="QPushButton" name="restore_button">
+                   <property name="enabled">
+                    <bool>true</bool>
+                   </property>
+                   <property name="text">
+                    <string>Restore reference</string>
+                   </property>
+                  </widget>
+                 </item>
+                  <item row="0" column="1">
+                   <widget class="QToolButton" name="restore_tooltip">
+                    <property name="minimumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="maximumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="focusPolicy">
+                     <enum>Qt::NoFocus</enum>
+                    </property>
+                    <property name="toolTip">
+                     <string>Restore the corrector settings saved when Read reference orbit was clicked.</string>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">QToolButton#restore_tooltip {
+                     border: 1px solid #888;
+                     border-radius: 10px;
+                     min-width: 20px;
+                     max-width: 20px;
+                     min-height: 20px;
+                     max-height: 20px;
+                     padding: 0px;
+                     font-weight: bold;
+                 }
+                 QToolButton#restore_tooltip:hover {
+                     background-color: #e6e6e6;
+                 }</string>
+                    </property>
+                    <property name="text">
+                     <string>?</string>
+                    </property>
+                    <property name="autoRaise">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                 <item row="1" column="0">
+                  <widget class="QPushButton" name="clear_targets_button">
+                   <property name="text">
+                    <string>Clear all desired bumps</string>
+                   </property>
+                  </widget>
+                 </item>
+                  <item row="1" column="1">
+                   <widget class="QToolButton" name="clear_targets_tooltip">
+                    <property name="minimumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="maximumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="focusPolicy">
+                     <enum>Qt::NoFocus</enum>
+                    </property>
+                    <property name="toolTip">
+                     <string>Remove all desired bump offsets. The desired orbit returns to the reference orbit; corrector settings are unchanged.</string>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">QToolButton#clear_targets_tooltip {
+                     border: 1px solid #888;
+                     border-radius: 10px;
+                     min-width: 20px;
+                     max-width: 20px;
+                     min-height: 20px;
+                     max-height: 20px;
+                     padding: 0px;
+                     font-weight: bold;
+                 }
+                 QToolButton#clear_targets_tooltip:hover {
+                     background-color: #e6e6e6;
+                 }</string>
+                    </property>
+                    <property name="text">
+                     <string>?</string>
+                    </property>
+                    <property name="autoRaise">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                 <item row="2" column="0">
+                  <widget class="QPushButton" name="clear_plots_button">
+                   <property name="text">
+                    <string>Clear plots</string>
+                   </property>
+                  </widget>
+                 </item>
+                  <item row="2" column="1">
+                   <widget class="QToolButton" name="clear_plots_tooltip">
+                    <property name="minimumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="maximumSize">
+                     <size><width>22</width><height>22</height></size>
+                    </property>
+                    <property name="focusPolicy">
+                     <enum>Qt::NoFocus</enum>
+                    </property>
+                    <property name="toolTip">
+                     <string>Clear both orbit plots. The saved reference, desired bump targets and corrector settings are unchanged; live readings redraw the plots on the next refresh.</string>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">QToolButton#clear_plots_tooltip {
+                     border: 1px solid #888;
+                     border-radius: 10px;
+                     min-width: 20px;
+                     max-width: 20px;
+                     min-height: 20px;
+                     max-height: 20px;
+                     padding: 0px;
+                     font-weight: bold;
+                 }
+                 QToolButton#clear_plots_tooltip:hover {
+                     background-color: #e6e6e6;
+                 }</string>
+                    </property>
+                    <property name="text">
+                     <string>?</string>
+                    </property>
+                    <property name="autoRaise">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                </layout>
                </item>
               </layout>
              </widget>

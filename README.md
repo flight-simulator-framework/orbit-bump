@@ -4,6 +4,8 @@ Create a desired beam trajectory by changing selected corrector settings. The ap
 
 The GUI displays the desired, predicted and measured trajectories so that the result can be compared with the requested bump.
 
+The correction uses bounded least squares, with the same beta regularization and PINV tolerance treatment as BBA. Maximum corrector strengths are included in the optimization, allowing other correctors to compensate when one reaches its limit. A maximum strength of zero means no limit for that plane.
+
 ## Usage
 
 1. Select a machine or simulation interface and choose the correctors and BPMs to use.
